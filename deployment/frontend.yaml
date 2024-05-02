@@ -1,0 +1,34 @@
+# Deployment para la aplicación Next.js
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextjs-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextjs-app
+  template:
+    metadata:
+      labels:
+        app: nextjs-app
+    spec:
+      containers:
+        - name: nextjs-app
+          image: "tu-registro-ecr/nextjs-app:latest"
+          ports:
+            - containerPort: 80
+
+# Service para la aplicación Next.js
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextjs-app
+spec:
+  selector:
+    app: nextjs-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

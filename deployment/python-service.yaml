@@ -1,0 +1,34 @@
+# Deployment para el microservicio Python
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-microservice
+  template:
+    metadata:
+      labels:
+        app: python-microservice
+    spec:
+      containers:
+        - name: python-microservice
+          image: "tu-registro-ecr/python-microservice:latest"
+          ports:
+            - containerPort: 5000
+
+# Service para el microservicio Python
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-microservice
+spec:
+  selector:
+    app: python-microservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: LoadBalancer

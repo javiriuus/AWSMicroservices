@@ -1,0 +1,34 @@
+# Deployment para el microservicio Golang
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golang-microservice
+  template:
+    metadata:
+      labels:
+        app: golang-microservice
+    spec:
+      containers:
+        - name: golang-microservice
+          image: "tu-registro-ecr/golang-microservice:latest"
+          ports:
+            - containerPort: 8080
+
+# Service para el microservicio Golang
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang-microservice
+spec:
+  selector:
+    app: golang-microservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
