@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 )
 
 // Usuario representa un usuario de la tabla "user" en la base de datos PostgreSQL
