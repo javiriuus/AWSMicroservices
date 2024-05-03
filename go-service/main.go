@@ -2,73 +2,78 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
-	"github.com/gin-gonic/gin"
+	_ "github.com/lib/pq"
 )
 
-// Usuario representa un usuario de la tabla "user" en la base de datos PostgreSQL
-type Usuario struct {
-	ID     int    `json:"id"`
-	Nombre string `json:"nombre"`
-	Email  string `json:"email"`
+// Estructura para los datos del usuario
+type User struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 func main() {
-	// Configura la conexión a PostgreSQL
-	dsn := "postgres://username:password@hostname:5432/database_name?sslmode=disable"
-	db, err := sql.Open("postgres", dsn)
+	// Obtiene la cadena de conexión desde las variables de entorno
+	dbConnStr := os.Getenv("DB_CONN_STR")
+
+	// Conecta a la base de datos PostgreSQL
+	db, err := sql.Open("postgres", dbConnStr)
 	if err != nil {
-		log.Fatalf("Error al conectar a la base de datos: %v", err)
+		log.Fatalf("No se pudo conectar a la base de datos: %v", err)
 	}
 	defer db.Close()
 
-	// Verifica la conexión a la base de datos
-	err = db.Ping()
-	if err != nil {
-		log.Fatalf("Error al verificar conexión a la base de datos: %v", err)
-	}
-
-	// Crea un enrutador Gin
-	router := gin.Default()
-
-	// Ruta para obtener la lista de usuarios
-	router.GET("/usuarios", func(c *gin.Context) {
-		usuarios, err := obtenerUsuarios(db)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener usuarios"})
+	// Define un manejador HTTP para la ruta "/users"
+	http.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		c.JSON(http.StatusOK, usuarios)
+
+		// Consulta a la base de datos para obtener los usuarios
+		rows, err := db.Query("SELECT id, name, email FROM user")
+		if err != nil {
+			log.Printf("Error al consultar la base de datos: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		// Procesa los resultados de la consulta
+		var users []User
+		for rows.Next() {
+			var user User
+			err := rows.Scan(&user.ID, &user.Name, &user.Email)
+			if err != nil {
+				log.Printf("Error al escanear la fila: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			users = append(users, user)
+		}
+
+		// Convierte la lista de usuarios a JSON
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(users)
+		if err != nil {
+			log.Printf("Error al codificar JSON: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	})
 
-	// Inicia el servidor HTTP
-	log.Println("Servidor en ejecución en el puerto 8080")
-	router.Run(":8080")
-}
-
-// obtenerUsuarios obtiene la lista de usuarios de la base de datos PostgreSQL
-func obtenerUsuarios(db *sql.DB) ([]Usuario, error) {
-	rows, err := db.Query("SELECT id, nombre, email FROM user")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var usuarios []Usuario
-	for rows.Next() {
-		var usuario Usuario
-		if err := rows.Scan(&usuario.ID, &usuario.Nombre, &usuario.Email); err != nil {
-			return nil, err
-		}
-		usuarios = append(usuarios, usuario)
+	// Escucha en el puerto 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	// Verifica si hay errores en la iteración
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return usuarios, nil
+	fmt.Printf("Servidor escuchando en el puerto %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
